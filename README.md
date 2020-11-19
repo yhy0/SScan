@@ -1,5 +1,5 @@
 # InforScan
-一款src捡洞扫描器
+一款src捡洞扫描器，名字暂定为InforScan。
 
 ## 正在做
 
