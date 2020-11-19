@@ -9,7 +9,7 @@
 
 它可以**运行**了，跑起来了，等我解决Bug，就可以愉快的捡洞了
 
-![image-20201119211519637](/Users/yhy/Tools/image-20201119211519637.png)
+![image-20201119211519637](image-20201119211519637.png)
 
 界面从 [oneforall](https://github.com/shmilylty/OneForAll.git) 拿的，也用到了 fire 这个框架，挺好用，  内核现在还是[BBScan](https://github.com/lijiejie/BBScan.git)为主，
 
