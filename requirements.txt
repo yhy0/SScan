@@ -1,0 +1,9 @@
+fire
+beautifulsoup4
+pymongo
+pymysql
+psycopg2-binary
+uvloop; platform_system != "Windows"
+requests
+geoip2
+retrying
