@@ -12,12 +12,21 @@
 
 ## 使用
 
+<<<<<<< HEAD
         python3 SScan.py --help				 		    获取帮助
         python3 SScan.py version		 			    查看版本
         python3 SScan.py --host example.com run		    单个目标
         python3 SScan.py --f domains.txt run		    多个目标
         python3 SScan.py --f domains.txt  --network 24 run  设置一个子网掩码(8 ~ 31)，配合	
         										上面3个参数中任意一个。将扫描Target/MASK 网络下面的所有IP
+=======
+        python3 SScan.py --help				 	获取帮助
+        python3 SScan.py version		 		查看版本
+        python3 SScan.py --host example.com run		        单个目标
+        python3 SScan.py --f domains.txt run		        多个目标
+        python3 SScan.py --f domains.txt  --network 24 run	设置一个子网掩码(8 ~ 31)，配合							
+                                                                上面3个参数中任意一个。将扫描Target/MASK 网络下面的所有IP
+>>>>>>> e7877f5f97ae329a6f2f3a52a690978961c0a3ab
 ## 功能
 
 目前比[BBScan](https://github.com/lijiejie/BBScan.git) 多了一个CDN检测，默认是当检测到url解析存在cdn时，不会将ip加入扫描目标中，只扫描url
@@ -55,4 +64,4 @@ redis、Hadoop、Hadoop yarn、docker、docker registry api、CouchDB、ftp、zo
 ## Star趋势
 
 [![Stargazers over time](https://starchart.cc/yhy0/SScan.svg)](https://starchart.cc/yhy0/SScan)
-
+      
