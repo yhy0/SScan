@@ -6,6 +6,7 @@ import asyncio
 import ipaddress
 import time
 from config.log import logger
+from config.setting import tasks_count
 from urllib.parse import urlparse
 import socket
 from lib.common.scanner import Scanner
@@ -24,7 +25,7 @@ def scan_process(target, q_results, args):
         ret = scanner.init_from_url(target)
         if ret:
             host, results = scanner.scan()
-            # print(f'host       {host}     {log}')
+
             if results:
                 q_results.put((host, results))
 
@@ -37,16 +38,15 @@ async def port_scan_check(ip_port, semaphore):
     async with semaphore:
         ip, port = ip_port[0], ip_port[1]
         conn = asyncio.open_connection(ip, port)
-
         try:
             reader, writer = await asyncio.wait_for(conn, timeout=10)
             # print(ip, port, 'open', ip_port[2], ip_port[3], ip_port[4])
             # 127.0.0.1 3306 open http /test.html 8080
             conn.close()
-            return (ip, port, 'open', ip_port[2], ip_port[3], ip_port[4])
+            return ip, port, 'open', ip_port[2], ip_port[3], ip_port[4]
         except Exception as e:
             conn.close()
-            return (ip, port, 'close', ip_port[2], ip_port[3], ip_port[4])
+            return ip, port, 'close', ip_port[2], ip_port[3], ip_port[4]
 
 
 # 对给定目标进行80、443、指定的端口、脚本需要的端口进行探测，
@@ -83,9 +83,9 @@ def get_ip_port_list(queue_targets, args):
             if port == 443:
                 scheme = 'https'
 
-        if port: # url中指定了协议或端口
+        if port:            # url中指定了协议或端口
             ip_port_list.append((host, port, scheme, path, port))
-        else: # url中没指定扫描80，443
+        else:               # url中没指定扫描80，443
             port = 80
             ip_port_list.append((host, 80, scheme, path, 80))
             ip_port_list.append((host, 443, scheme, path, 443))
@@ -94,6 +94,7 @@ def get_ip_port_list(queue_targets, args):
         if not args.no_scripts:
             for s_port in args.require_ports:
                 ip_port_list.append((host, s_port, scheme, path, port))
+
     return list(set(ip_port_list))
 
 
@@ -117,18 +118,26 @@ def get_target(tasks):
 
 # 使用异步协程， 检测目标80、443、给定端口是否开放
 def process_targets(queue_targets, q_targets, args):
+
     sem = asyncio.Semaphore(1000)  # 限制并发量
-    loop = asyncio.get_event_loop()
+    # 主线程通过 get_event_loop 获取当前事件循环， 对于其他线程需要首先loop=new_event_loop(),然后set_event_loop(loop)。
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
     # 对目标和要扫描的端口做处理，格式化
 
     # queue_targets  ['http://127.0.0.1:8080', 'www.baidu.cn']
     # ip_port_list [('127.0.0.1', 8080, 0, 'http', ''), ('www.baidu.cn', 80, 0, 'unknown', ''), ('www.baidu.cn', 443, 0, 'unknown', '')]
     ip_port_list = get_ip_port_list(queue_targets, args)
+
     tasks = list()
-    for ip_port in ip_port_list:
-        # 端口扫描任务
-        task = asyncio.ensure_future(port_scan_check(ip_port, sem))
-        tasks.append(task)
+    try:
+        for ip_port in ip_port_list:
+            # 端口扫描任务
+            tasks.append(loop.create_task(port_scan_check(ip_port, sem)))
+    except Exception as e:
+        logger.log("ERROR", f'{e}')
+
     import platform
     if platform.system() != "Windows":
         import uvloop
@@ -197,10 +206,8 @@ async def domain_lookup_check(loop, url, queue_targets, processed_targets):
 
     # ('jd.com', 'https')
     url_tuple = (host, scheme)
-
     try:
         info = await loop.getaddrinfo(*url_tuple, proto=socket.IPPROTO_TCP,)
-
         queue_targets.append(url)
         for host in info:
             ip = host[4][0]
@@ -212,10 +219,14 @@ async def domain_lookup_check(loop, url, queue_targets, processed_targets):
 
 
 # 预处理 URL / IP / 域名，端口发现
-def prepare_targets(target_list, q_targets, args):
-    logger.log('INFOR', 'Domain lookup start.')
+def prepare_targets(target_list, q_targets, args, count):
+
+    tasks_count.value += 1
+
+    logger.log('INFOR', f'{tasks_count.value}/{count} Domain lookup start.')
+
     domain_start_time = time.time()
-    print(target_list)
+
     # 有效目标，包括url和ip
     queue_targets = []
 
@@ -260,11 +271,11 @@ def prepare_targets(target_list, q_targets, args):
     if args.debug:
         logger.log("DEBUG", f'没有CDN的目标: {processed_targets}')
 
-    logger.log("INFOR", f'Domain lookup check over in %.1f seconds!' % (time.time() - domain_start_time))
+    logger.log("INFOR", f'{tasks_count.value}/{count} Domain lookup check over in %.1f seconds!' % (time.time() - domain_start_time))
 
     # 当指定子网掩码时的处理逻辑, 将对应网段ip加入处理目标中
     if args.network != 32:
-        logger.log("INFOR", f'Process sub network start.')
+        logger.log("INFOR", f'{tasks_count.value}/{count} Process sub network start.')
         for ip in processed_targets:
             if ip.find('/') > 0:    # 网络本身已经处理过 118.193.98/24
                 continue
@@ -286,7 +297,7 @@ def prepare_targets(target_list, q_targets, args):
                     _ip = str(_ip)
                     if _ip not in processed_targets:
                         queue_targets.append(_ip)
-        logger.log("INFOR", f'Process sub network over.')
+        logger.log("INFOR", f'{tasks_count.value}/{count} Process sub network over.')
 
     # 将域名和IP 合并
     queue_targets.extend(processed_targets)
@@ -294,9 +305,12 @@ def prepare_targets(target_list, q_targets, args):
     queue_targets = set(queue_targets)
 
     # 使用异步协程， 检测目标80、443、给定端口是否开放
-    logger.log('INFOR', 'Start of port detection.')
+    logger.log('INFOR', f'{tasks_count.value}/{count} Start of port detection.')
     port_start_time = time.time()
+
+    # 检测目标80、443、给定端口是否开放
     process_targets(queue_targets, q_targets, args)
-    logger.log("INFOR", f'Port detection check over in %.1f seconds!' % (time.time() - port_start_time))
+
+    logger.log("INFOR", f'{tasks_count.value}/{count} Port detection check over in %.1f seconds!' % (time.time() - port_start_time))
 
 

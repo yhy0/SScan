@@ -394,8 +394,12 @@ class Scanner(object):
         if self.args.no_scripts:  # 全局禁用插件，无需导入
             return
         for _script in self.args.script_files:
+            # 跳过__init__.py
+            if _script.startswith('scripts/__'):
+                continue
             script_name_origin = os.path.basename(_script)
             script_name = script_name_origin.replace('.py', '')
+
             try:
                 self.user_scripts.append(importlib.import_module('scripts.%s' % script_name))
             except Exception as e:
@@ -409,6 +413,7 @@ class Scanner(object):
                 logger.log('ALERT', '[ERROR] Timed out task: %s' % self.base_url)
             return
         url, url_description, tag, status_to_match, content_type, content_type_no, root_only, vul_type, prefix = None, None, None, None, None, None, None, None, None
+
         try:
             if len(item) == 2:  # Script Scan
                 check_func = getattr(item[0], 'do_check')
@@ -496,7 +501,8 @@ class Scanner(object):
     def scan(self):
         try:
             start_time = time.time()
-            loop = asyncio.get_event_loop()
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
             import platform
             if platform.system() != "Windows":
                 import uvloop

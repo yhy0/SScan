@@ -8,13 +8,16 @@
 
 界面从 [oneforall](https://github.com/shmilylty/OneForAll.git) 拿的，  内核现在还是[BBScan](https://github.com/lijiejie/BBScan.git)为主，目前在运行速度上和BBScan 相比有一定的差距。
 
+![image-20210104144338454](image-20210104144338454.png)
+
 ## 使用
 
-        python3 SScan.py --help				 			获取帮助
-        python3 SScan.py version		 			查看版本
-        python3 SScan.py --host example.com run		单个目标
-        python3 SScan.py --f domains.txt run		多个目标
-        python3 SScan.py --f domains.txt  --network 24 run	设置一个子网掩码(8 ~ 31)，配合										上面3个参数中任意一个。将扫描Target/MASK 网络下面的所有IP
+        python3 SScan.py --help				 		    获取帮助
+        python3 SScan.py version		 			    查看版本
+        python3 SScan.py --host example.com run		    单个目标
+        python3 SScan.py --f domains.txt run		    多个目标
+        python3 SScan.py --f domains.txt  --network 24 run  设置一个子网掩码(8 ~ 31)，配合	
+        										上面3个参数中任意一个。将扫描Target/MASK 网络下面的所有IP
 ## 功能
 
 目前比[BBScan](https://github.com/lijiejie/BBScan.git) 多了一个CDN检测，默认是当检测到url解析存在cdn时，不会将ip加入扫描目标中，只扫描url
@@ -40,6 +43,7 @@ redis、Hadoop、Hadoop yarn、docker、docker registry api、CouchDB、ftp、zo
 ## 后续计划
 
 - [ ] 将[Packer-Fuzzer](https://github.com/rtcatc/Packer-Fuzzer)项目中的一些功能集成进去，能够对js文件中的敏感信息、API进行测试
+- [ ] 加入403 绕过 [BurpSuite_403Bypasser](https://github.com/sting8k/BurpSuite_403Bypasser)
 
 ## 免责声明
 

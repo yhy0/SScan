@@ -39,6 +39,7 @@ class SScan(object):
         :param bool checkcdn:       Check the CDN and skip the IP where the CDN exists (default True)
         :param bool full:           Process all sub directories /x/y/z/，/x/ /x/y/ (default True)
         :param str  script:         ScriptName1 ScriptName2 ..., Scan with user scripts only
+        :param bool  script_only:    Scan with user scripts only
         :param bool noscripts:      Disable all scripts (default False)
         :param int  p:              Num of processes running concurrently, 30 by default
         :param int  t:              Num of scan threads for each scan process, 3 by default
@@ -50,7 +51,7 @@ class SScan(object):
 
     def __init__(self, host=None, file=None, dir="", network=32, rule=None, crawl=True, check404=False,
                  full=True, script=None, noscripts=False, timeout=10, debug=True,
-                 browser=True, scripts_only=False, checkcdn=True):
+                 browser=False, script_only=False, checkcdn=True):
         self.host = host
         self.file = file
         self.rule_files = []
@@ -62,7 +63,7 @@ class SScan(object):
         self.check404 = check404
         self.checkcdn = checkcdn
         self.fileull = full
-        self.scripts_only = scripts_only
+        self.scripts_only = script_only
         self.script = script
         self.no_scripts = noscripts
         self.timeout = timeout
@@ -106,7 +107,6 @@ class SScan(object):
                 self.rule_files.append(f'rules/{rule_name}')
 
         if not self.no_scripts:
-
             if self.script is None:
                 self.script_files = glob.glob('scripts/*.py')
             else:
@@ -120,6 +120,7 @@ class SScan(object):
                     if not os.path.exists('scripts/%s' % script_name):
                         logger.log('FATAL', 'Rule file not found: %s' % script_name)
                         exit(-1)
+
                     self.script_files.append('scripts/%s' % script_name)
             pattern = re.compile(r'ports_to_check.*?\=(.*)')
 
@@ -172,6 +173,7 @@ class SScan(object):
 
     def main(self):
         q_targets = multiprocessing.Manager().Queue()  # targets Queue
+
         q_targets_list = []
         q_results = multiprocessing.Manager().Queue()  # log Queue
 
@@ -197,15 +199,17 @@ class SScan(object):
                 start_time = time.time()
 
                 # 根据电脑 CPU 的内核数量, 创建相应的进程池
-                count = multiprocessing.cpu_count()
+                # count = multiprocessing.cpu_count()
+                count = 16
                 # 少量目标，至多创建2倍扫描进程
                 if len(target_list) * 2 < count:
                     count = len(target_list) * 2
                 pool = multiprocessing.Pool(count)
-                j = 0
+                setting.tasks_count.value = 0
+
                 for i in range(0, len(target_list), count):
                     target = target_list[i:i + count]
-                    pool.apply_async(prepare_targets, args=(target, q_targets, self))
+                    pool.apply_async(prepare_targets, args=(target, q_targets, self, count))
 
                 pool.close()
                 pool.join()
@@ -224,10 +228,13 @@ class SScan(object):
 
                 if len(target_list) * 2 < count:
                     count = len(target_list) * 2
+
                 pool = multiprocessing.Pool(count)
+                logger.log('INFOR', f'{count} scan process created.')
+
                 for target in q_targets_list:
                     pool.apply_async(scan_process, args=(target, q_results, self))
-                logger.log('INFOR', f'{count} scan process created.')
+
                 pool.close()
                 pool.join()
 

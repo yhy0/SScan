@@ -169,7 +169,8 @@ def check_cdn(processed_targets):
     logger.log('INFOR', f'Start CDN check module')
     start_time = time.time()
     # 创建一个事件循环
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     # 创建一个线程池，开启6个线程
     p = ThreadPoolExecutor(6)
     # 这一步很重要, 使用线程池访问，使用loop.run_in_executor()函数:内部接受的是阻塞的线程池，执行的函数，传入的参数
@@ -183,18 +184,20 @@ def check_cdn(processed_targets):
         else:
             tasks.append(loop.run_in_executor(p, run, target))
 
-    # 使用uvloop加速asyncio, 目前不支持Windows
-    import platform
-    if platform.system() != "Windows":
-        import uvloop
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    if len(tasks) > 0:
+        # 使用uvloop加速asyncio, 目前不支持Windows
+        import platform
+        if platform.system() != "Windows":
+            import uvloop
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
-    # 等待所有的任务完成
-    result = asyncio.wait(tasks)
+        # 等待所有的任务完成
+        result = asyncio.wait(tasks)
+        loop.run_until_complete(result)
+        logger.log("INFOR", f'=---------------')
+        for i in tasks:
+            ips.extend(i.result())
 
-    loop.run_until_complete(result)
-    for i in tasks:
-        ips.extend(i.result())
     loop.close()
     logger.log("INFOR", f'CDN check over in %.1f seconds!' % (time.time() - start_time))
     return ips

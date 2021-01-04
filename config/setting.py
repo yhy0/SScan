@@ -3,6 +3,7 @@
 # @Author : yhy
 
 import pathlib
+import multiprocessing
 
 # 路径设置
 relative_directory = pathlib.Path(__file__).parent.parent  # 项目代码相对路径
@@ -17,3 +18,4 @@ default_headers = {
     "Connection": "close"
 }
 
+tasks_count = multiprocessing.Value('i', 0)  # 任务计数器
