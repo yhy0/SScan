@@ -72,6 +72,8 @@ python3 SScan.py --host 127.0.0.1 --script unauthorized_access_redis,unauthorize
 
  ![image-20210106105118466](images/image-20210106105118466.png)
 
+-   [ ] 调用Fofa Api，查询资产信息，更全面地扫描资产
+
 ## rules目录下的规则描述
 
 - black.list 规则黑名单，命中则跳过
