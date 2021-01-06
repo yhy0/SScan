@@ -8,3 +8,4 @@ requests
 geoip2
 retrying
 yarl
+loguru
