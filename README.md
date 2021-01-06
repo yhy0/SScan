@@ -19,25 +19,27 @@
 ## 使用及参数
 
 ```bash
-python3 SScan.py version								查看版本
-python3 SScan.py --help									获取帮助
-python3 SScan.py --host example.com run					单个目标
-python3 SScan.py --file domains.txt run					读取一个.txt文件
-python3 SScan.py --dire /Users/yhy/Desktop/dirs/ run	读取目录下的所有.txt
-python3 SScan.py --file domains.txt  --network 24 run	network设置一个子网掩码(8 ~ 31)，
-						配合上面3个参数中任意一个。将扫描Target/MASK 网络下面的所有IP
+python3 SScan.py version                                查看版本
+python3 SScan.py --help                                 获取帮助
+python3 SScan.py --host example.com run                 单个目标
+python3 SScan.py --file domains.txt run                 读取一个.txt文件
+python3 SScan.py --dire /Users/yhy/Desktop/dirs/ run    读取目录下的所有.txt
+python3 SScan.py --file domains.txt  --network 24 run   network设置一个子网掩码(8 ~ 31)，
+                配合上面3个参数中任意一个。将扫描Target/MASK 网络下面的所有IP
 python3 SScan.py --host 127.0.0.1 --script unauthorized_access_redis,unauthorized_access_rsync run
-	
-	--t				扫描线程数, 默认10。
-	--full          处理所有子目录。 /x/y/z/这样的链接，/x/ /x/y/也将被扫描，默认为True
-	--crawl			爬取主页的<a>标签， 默认为True
-	--checkcdn		检查域名是否存在CDN，若存在则不对解析出的ip进行规则和脚本探测，默认为True
-	--browser		检测完成后，使用默认浏览器打开扫描报告，默认为True
-	--script        指定要使用的脚本，--script unauthorized_access_redis unauthorized_access_rsync, ... 脚本在scripts目录下
-	--rule			指定要扫描的规则，--rule RuleFileName1,RuleFileName2,... 规则在rules目录下
-    --script_only	只使用脚本进行扫描，不使用规则
+                    只使用指定脚本 
+                    
+其它参数：
+    --t             扫描线程数, 默认10。
+    --full          处理所有子目录。 /x/y/z/这样的链接，/x/ /x/y/也将被扫描，默认为True
+    --crawl         爬取主页的<a>标签， 默认为True
+    --checkcdn      检查域名是否存在CDN，若存在则不对解析出的ip进行规则和脚本探测，默认为True
+    --browser       检测完成后，使用默认浏览器打开扫描报告，默认为True
+    --script        指定要使用的脚本，--script unauthorized_access_redis unauthorized_access_rsync, ... 脚本在scripts目录下
+    --rule          指定要扫描的规则，--rule RuleFileName1,RuleFileName2,... 规则在rules目录下
+    --script_only   只使用脚本进行扫描，不使用规则
     --noscripts     不使用脚本扫描
-		
+
 ```
 ## 功能
 
@@ -47,7 +49,7 @@ python3 SScan.py --host 127.0.0.1 --script unauthorized_access_redis,unauthorize
 
 - [x] 后台登录页面资产发现
 
-- [x] 403页面绕过
+- [x] 403页面绕过，具体绕过规则在`lib/common/scanner.py`的196行的``bypass_403`函数
 
 - [x] 扫描某个网段，通过 `--network 24` 指定扫描C段资产，进行漏洞和信息发现
 
@@ -123,9 +125,9 @@ python3 SScan.py --host 127.0.0.1 --script unauthorized_access_redis,unauthorize
 ## 免责声明
 
 本工具仅能在取得足够合法授权的企业安全建设中使用，在使用本工具过程中，您应确保自己所有行为符合当地的法律法规。 
-	如您在使用本工具的过程中存在任何非法行为，您将自行承担所有后果，本工具所有开发者和所有贡献者不承担任何法律及连带责任。
-	除非您已充分阅读、完全理解并接受本协议所有条款，否则，请您不要安装并使用本工具。
-	您的使用行为或者您以其他任何明示或者默示方式表示接受本协议的，即视为您已阅读并同意本协议的约束。
+    如您在使用本工具的过程中存在任何非法行为，您将自行承担所有后果，本工具所有开发者和所有贡献者不承担任何法律及连带责任。
+    除非您已充分阅读、完全理解并接受本协议所有条款，否则，请您不要安装并使用本工具。
+    您的使用行为或者您以其他任何明示或者默示方式表示接受本协议的，即视为您已阅读并同意本协议的约束。
 
 ## Star趋势
 
