@@ -15,7 +15,7 @@ from lib.modules.iscdn import check_cdn
 
 # 扫描进程
 def scan_process(target, q_results, args):
-    scanner = Scanner(args.timeout * 60, args=args)
+    scanner = Scanner(args=args)
     try:
 
         '''
@@ -29,6 +29,8 @@ def scan_process(target, q_results, args):
             if results:
                 q_results.put((host, results))
 
+    except KeyboardInterrupt as e:
+        exit(-1)
     except Exception as e:
         logger.log('ERROR', f'{str(e)}')
 

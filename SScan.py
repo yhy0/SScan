@@ -27,56 +27,49 @@ class SScan(object):
     Example:
         python3 SScan.py version
         python3 SScan.py --host example.com run
-        python3 SScan.py --f domains.txt run
+        python3 SScan.py --file domains.txt run
 
-        :param str  host:           HOST1 HOST2 ... Scan several hosts from command line
-        :param str  file:              Load new line delimited targets from TargetFile
-        :param str  dir:              Load all *.txt files from TargetDirectory
-        :param int  network:        Scan all Target/MASK neighbour hosts, should be an int between 8 and 31
-        :param tuple  rule:           RuleFileName1,RuleFileName2 ..., Import specified rules files only.
-        :param bool crawl:         crawling, sub folders will be processed (default True)
-        :param bool check404:             No HTTP 404 existence check (default False)
-        :param bool checkcdn:       Check the CDN and skip the IP where the CDN exists (default True)
-        :param bool full:           Process all sub directories /x/y/z/，/x/ /x/y/ (default True)
-        :param str  script:         ScriptName1 ScriptName2 ..., Scan with user scripts only
-        :param bool  script_only:    Scan with user scripts only
-        :param bool noscripts:      Disable all scripts (default False)
-        :param int  p:              Num of processes running concurrently, 30 by default
-        :param int  t:              Num of scan threads for each scan process, 3 by default
-        :param int  timeout:        Max scan minutes for each target, 10 by default
-        :param bool debug           Show verbose debug info (default False)
-        :param bool nnn:            Do not open web browser to view report (default False)
+        :param str    host:              HOST1 HOST2 ... Scan several hosts from command line
+        :param str    file:               Load new line delimited targets from TargetFile
+        :param str    dire:              Load all *.txt files from TargetDirectory
+        :param int    network:           Scan all Target/MASK neighbour hosts, should be an int between 8 and 31
+        :param int    t:                 Num of scan threads for each scan process, 10 by default
+        :param tuple  rule:              RuleFileName1,RuleFileName2,... Import specified rules files only.
+        :param bool   crawl:             crawling, crawl <a href='...'>  (default True)
+        :param bool   checkcdn:          Check the CDN and skip the IP where the CDN exists (default True)
+        :param bool   full:              Process all sub directories /x/y/z/，/x/ /x/y/ (default True)
+        :param str    script:            ScriptName1,ScriptName2,...
+        :param bool   script_only:       Scan with user scripts only
+        :param bool   noscripts:         Disable all scripts (default False)
+        :param bool   debug:             Show verbose debug info (default False)
+        :param bool   browser:           Do not open web browser to view report (default True)
 
     """
 
-    def __init__(self, host=None, file=None, dir="", network=32, rule=None, crawl=True, check404=False,
-                 full=True, script=None, noscripts=False, timeout=10, debug=True,
-                 browser=False, script_only=False, checkcdn=True):
+    def __init__(self, host=None, file=None, dire="", network=32, t=10, rule=None,
+                 full=True, script=None, noscripts=False, debug=True, crawl=True,
+                 browser=True, script_only=False, checkcdn=True):
         self.host = host
         self.file = file
         self.rule_files = []
         self.script_files = []
-        self.dir = dir
+        self.dire = dire
         self.network = network
+        self.t = t
         self.rule = rule
         self.crawl = crawl
-        self.check404 = check404
         self.checkcdn = checkcdn
         self.fileull = full
         self.scripts_only = script_only
         self.script = script
         self.no_scripts = noscripts
-        self.timeout = timeout
         self.debug = debug
         self.browser = browser
-        self.diromain = str()  # The domain currently being collected
-        self.diromains = set()  # All domains that are to be collected
-        self.dirata = list()  # The subdomain log of the current domain
 
         if self.file:
             self.input_files = [self.file]
-        elif self.dir:
-            self.input_files = glob.glob(self.dir + '/*.txt')
+        elif self.dire:
+            self.input_files = glob.glob(self.dire + '/*.txt')
         elif self.host:
             self.input_files = [self.host]
         self.require_no_http = True  # 所有插件都不依赖 HTTP 连接池
@@ -88,8 +81,8 @@ class SScan(object):
         """
         Config parameter
         """
-        if self.dir:
-            self.dir = glob.glob(self.dir + '/*.txt')
+        if self.dire:
+            self.dire = glob.glob(self.dire + '/*.txt')
 
         if self.rule is None:
             self.rule_files = glob.glob('rules/*.txt')
@@ -122,12 +115,12 @@ class SScan(object):
                         exit(-1)
 
                     self.script_files.append('scripts/%s' % script_name)
-            pattern = re.compile(r'ports_to_check.*?\=(.*)')
+            pattern = re.compile(r'ports_to_check.*?\\=(.*)')
 
             for _script in self.script_files:
                 with open(_script) as f:
                     content = f.read()
-                    if content.find('self.http_request') > 0 or content.find('self.conn_pool.urlopen') > 0:
+                    if content.find('self.http_request') > 0 or content.find('self.session') > 0:
                         self.require_no_http = False  # 插件依赖HTTP连接池
                     if content.find('self.index_') > 0:
                         self.require_no_http = False
@@ -151,7 +144,7 @@ class SScan(object):
         """
         Check parameter
         """
-        if not (self.file or self.dir or self.host):
+        if not (self.file or self.dire or self.host):
             msg = '\nself missing! One of following self should be specified  \n' \
                   '           \t--f TargetFile \n' \
                   '           \t--d TargetDirectory \n' \
@@ -162,8 +155,8 @@ class SScan(object):
             logger.log('FATAL', 'TargetFile not found: %s' % self.file)
             exit(-1)
 
-        if self.dir and not os.path.isdir(self.dir):
-            logger.log('FATAL', 'TargetDirectory not found: %s' % self.dir)
+        if self.dire and not os.path.isdir(self.dire):
+            logger.log('FATAL', 'TargetDirectory not found: %s' % self.dire)
             exit(-1)
 
         self.network = int(self.network)
@@ -182,7 +175,7 @@ class SScan(object):
             if self.host:
                 target_list = self.host.replace(',', ' ').strip().split()
 
-            elif self.file or self.dir:
+            elif self.file or self.dire:
                 with open(input_file) as inFile:
                     target_list = inFile.readlines()
 

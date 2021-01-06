@@ -184,21 +184,34 @@ def check_cdn(processed_targets):
         else:
             tasks.append(loop.run_in_executor(p, run, target))
 
-    if len(tasks) > 0:
-        # 使用uvloop加速asyncio, 目前不支持Windows
-        import platform
-        if platform.system() != "Windows":
-            import uvloop
-            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    try:
+        if len(tasks) > 0:
+            # 使用uvloop加速asyncio, 目前不支持Windows
+            import platform
+            if platform.system() != "Windows":
+                import uvloop
+                asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
-        # 等待所有的任务完成
-        result = asyncio.wait(tasks)
-        loop.run_until_complete(result)
-        logger.log("INFOR", f'=---------------')
-        for i in tasks:
-            ips.extend(i.result())
-
-    loop.close()
+            # 等待所有的任务完成
+            result = asyncio.wait(tasks)
+            loop.run_until_complete(result)
+            for i in tasks:
+                ips.extend(i.result())
+    except KeyboardInterrupt:
+        # 当检测到键盘输入 ctrl c的时候
+        all_tasks = asyncio.Task.all_tasks()
+        # 获取注册到loop下的所有task
+        for task in all_tasks:
+            task.cancel()
+            # 取消该协程,如果取消成功则返回True
+        loop.stop()
+        # 停止循环
+        loop.run_forever()
+        # loop事件循环一直运行
+        # 这两步必须要做
+    finally:
+        loop.close()
+        # 关闭事件循环
     logger.log("INFOR", f'CDN check over in %.1f seconds!' % (time.time() - start_time))
     return ips
 

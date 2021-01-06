@@ -4,14 +4,13 @@
 import time
 from string import Template
 import webbrowser
-import sys
+import sys, errno
 import codecs
 import os
 from lib.common.utils import escape
 from lib.common.consle_width import getTerminalSize
 from config import setting
 from config.log import logger
-
 
 # template for html
 html_general = """
@@ -169,22 +168,27 @@ def save_report(args, _q_results, _file, tasks_processed_count):
             cost_min = '%s min' % cost_min if cost_min > 0 else ''
             cost_seconds = '%.1f' % (cost_time % 60)
 
-            html_doc = t_general.substitute(
-                {'tasks_processed_count': tasks_processed_count,
-                 'vulnerable_hosts_count': vulnerable_hosts_count,
-                 'cost_min': cost_min, 'cost_seconds': cost_seconds, 'content': content}
-            )
+            html_doc = t_general.substitute({
+                'tasks_processed_count': tasks_processed_count,
+                'vulnerable_hosts_count': vulnerable_hosts_count,
+                'cost_min': cost_min,
+                'cost_seconds': cost_seconds,
+                'content': content
+            })
 
             with codecs.open('report/%s' % report_name, 'w', encoding='utf-8') as outFile:
                 outFile.write(html_doc)
 
             logger.log('INFOR', '* %s vulnerable targets on sites in total.' % vulnerable_hosts_count)
             logger.log('INFOR', '* Scan report saved to report/%s' % report_name)
-            if not no_browser:
+            if no_browser:
                 webbrowser.open_new_tab('file:///' + os.path.abspath('report/%s' % report_name))
         else:
             logger.log('INFOR', '* No vulnerabilities found on sites in %s.' % _file)
 
+    except IOError as e:
+        if e.errno == errno.EPIPE:
+            sys.exit(-1)
     except Exception as e:
         logger.log('ERROR', '[save_report_thread Exception] %s %s' % (type(e), str(e)))
         import traceback

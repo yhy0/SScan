@@ -9,7 +9,7 @@ blue = '\033[01;34m'
 red = '\033[1;31m'
 end = '\033[0m'
 
-version = 'v0.2.1'
+version = 'v0.3'
 message = white + '{' + red + version + ' #dev' + white + '}'
 
 SScan_banner = f"""{yellow}

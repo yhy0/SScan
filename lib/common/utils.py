@@ -78,7 +78,6 @@ def save_script_result(self, status, url, title, vul_type=''):
     self.results[url].append(_)
 
 
-
 def escape(html):
     return html.replace('&', '&amp;').\
         replace('<', '&lt;').replace('>', '&gt;').\

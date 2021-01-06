@@ -7,3 +7,4 @@ uvloop; platform_system != "Windows"
 requests
 geoip2
 retrying
+yarl
