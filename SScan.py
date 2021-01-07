@@ -3,6 +3,7 @@
 # @Author : yhy
 
 import fire
+import math
 import os
 from datetime import datetime
 from config.log import logger
@@ -200,9 +201,10 @@ class SScan(object):
                 pool = multiprocessing.Pool(count)
                 setting.tasks_count.value = 0
 
+                num = math.ceil(len(target_list)/count)
                 for i in range(0, len(target_list), count):
                     target = target_list[i:i + count]
-                    pool.apply_async(prepare_targets, args=(target, q_targets, self, count))
+                    pool.apply_async(prepare_targets, args=(target, q_targets, self, num))
 
                 pool.close()
                 pool.join()

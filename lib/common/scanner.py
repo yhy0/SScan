@@ -16,9 +16,9 @@ import time
 import glob
 import os
 from bs4 import BeautifulSoup
-
+import hashlib
 from config.log import logger
-from lib.common.utils import get_domain_sub, cal_depth, get_html
+from lib.common.utils import get_domain_sub, cal_depth, get_html, get_md5
 from config import setting
 from lib.common.connectionPool import conn_pool
 
@@ -45,6 +45,7 @@ class Scanner(object):
         self.results = {}
         self._404_status = -1
 
+        self.index_md5 = ""
         self.index_status, self.index_headers, self.index_html_doc = None, {}, ''
         self.scheme, self.host, self.port, self.path = None, None, None, None
         self.domain_sub = ''
@@ -197,6 +198,8 @@ class Scanner(object):
 
         OriginalUrl = resp.request.path_url
         Rurl = resp.request.path_url
+        if OriginalUrl == "/SScan-404-existence-check":
+            return
 
         if Rurl != "/":
             Rurl = resp.request.path_url.rstrip("/")
@@ -217,8 +220,9 @@ class Scanner(object):
 
         for p in payloads:
             url = PreviousPath + "/" + p
-            resp = self.session.get(self.base_url + url, allow_redirects=False, headers=setting.default_headers, timeout=timeout, verify=False)
-            if resp.status_code == 200:
+            resp_p = self.session.get(self.base_url + url, allow_redirects=False, headers=setting.default_headers, timeout=timeout, verify=False)
+            # 当状态码为200时，且该页面的 md5 值不与首页相等时，认为可以绕过403
+            if resp_p.status_code == 200 and self.index_md5 != get_md5(resp_p, setting.default_headers):
                 if OriginalUrl not in self.results:
                     self.results[OriginalUrl] = []
                 _ = {'status': resp.status_code, 'url': '%s%s' % (self.base_url, OriginalUrl),
@@ -228,6 +232,7 @@ class Scanner(object):
                 break
 
         for hp in hpayloads:
+            # 这个headers 是为了防止update时，连续添加入字典，不能使用setting.default_headers，不然会连续增加，setting.default_headers会发生变化
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36(KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36",
                 "Connection": "close",
@@ -248,10 +253,9 @@ class Scanner(object):
             else:
                 url = OriginalUrl
 
-            resp = self.session.get(self.base_url + url, allow_redirects=False, headers=headers,
-                                    timeout=timeout, verify=False)
-
-            if resp.status_code == 200:
+            resp_hp = self.session.get(self.base_url + url, allow_redirects=False, headers=headers, timeout=timeout, verify=False)
+            # 当状态码为200时，且该页面的 md5 值不与首页相等时，认为可以绕过403
+            if resp_hp.status_code == 200 and self.index_md5 != get_md5(resp_hp, headers):
                 if OriginalUrl not in self.results:
                     self.results[OriginalUrl] = []
                 _ = {'status': resp.status_code, 'url': '%s%s' % (self.base_url, OriginalUrl),
@@ -266,7 +270,7 @@ class Scanner(object):
     def check_404_existence(self):
         try:
             try:
-                self._404_status, _, html_doc = self.http_request('/BBScan-404-existence-check')
+                self._404_status, _, html_doc = self.http_request('/SScan-404-existence-check')
             except Exception as e:
                 logger.log('ALERT', f'HTTP 404 check failed: {self.base_url} {str(e)}')
                 self._404_status, _, html_doc = -1, {}, ''
@@ -353,6 +357,10 @@ class Scanner(object):
 
             if path == '/':
                 self.index_status, self.index_headers, self.index_html_doc = status, headers, html_doc
+
+                # 计算首页页面的 md5 值 ，通过对比 md5 值, 判断页面是否相等
+                self.index_md5 = hashlib.md5(self.index_html_doc.encode('utf-8')).hexdigest()
+
             if not do_not_process_links and html_doc:
                 soup = BeautifulSoup(html_doc, "html.parser")
                 # 循环爬取a标签

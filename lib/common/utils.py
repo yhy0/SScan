@@ -5,7 +5,7 @@ import re
 import json
 from ipaddress import IPv4Address
 from urllib.parse import urlparse
-
+import hashlib
 from config.log import logger
 
 
@@ -31,6 +31,12 @@ def clear_queue(this_queue):
             this_queue.get_nowait()
     except Exception as e:
         return
+
+
+# 计算页面的 md5 值 ，通过对比 md5 值 ，判断页面是否相等
+def get_md5(resp, headers):
+    html_doc = get_html(headers, resp)
+    return hashlib.md5(html_doc.encode('utf-8')).hexdigest()
 
 
 def get_html(headers, resp):

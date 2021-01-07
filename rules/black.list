@@ -10,6 +10,8 @@
 
 {regex_text=".*页面不存在.*"}
 
+{regex_text="<title>.*404.*</title>"}
+
 {regex_text=".*页面没有找到.*"}
 
 {regex_text=".*页面不见.*"}
@@ -19,6 +21,8 @@
 {text="404 Not Found"}
 
 {text="<p>The server encountered an internal error or"}
+
+{text="Sorry, you are not permitted to view this page."}
 
 {text="http://www.qq.com/babygohome/?pgv_ref=404"}
 

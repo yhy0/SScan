@@ -222,7 +222,6 @@ async def domain_lookup_check(loop, url, queue_targets, processed_targets):
 
 # 预处理 URL / IP / 域名，端口发现
 def prepare_targets(target_list, q_targets, args, count):
-
     tasks_count.value += 1
 
     logger.log('INFOR', f'{tasks_count.value}/{count} Domain lookup start.')
