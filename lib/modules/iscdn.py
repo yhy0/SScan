@@ -22,6 +22,21 @@ from urllib.parse import urlparse
 import time
 from concurrent.futures import ThreadPoolExecutor
 from lib.common.utils import load_json
+# 进度条设置
+from rich.progress import (
+    BarColumn,
+    TimeRemainingColumn,
+    Progress,
+)
+
+progress = Progress(
+    "[progress.description]{task.description}",
+    BarColumn(),
+    "[progress.percentage]{task.percentage:>3.0f}%",
+    TimeRemainingColumn(),
+    "[bold red]{task.completed}/{task.total}",
+    transient=True,  # 100%后隐藏进度条
+)
 
 data_dir = setting.data_storage_dir
 
@@ -45,7 +60,7 @@ def get_cname(cnames, cname):  # get cname
         pass
 
 
-def get_cnames(cnames, url): # get all cname
+def get_cnames(cnames, url):    # get all cname
 
     if url.find('://') < 0:
         netloc = url[:url.find('/')] if url.find('/') > 0 else url
@@ -70,8 +85,7 @@ def get_headers(url):
         response = requests.get(url, headers=setting.default_headers, timeout=10, verify=False)
         headers = str(response.headers).lower()
     except Exception as e:
-        # logger.log('ERROR', f'url: {url}  {repr(e)}')
-
+        logger.log('DEBUG', f'url: {url}  {repr(e)}')
         headers = None
     return headers
 
@@ -88,7 +102,7 @@ def get_ip_list(url):
             if item[4][0] not in ip_list:
                 ip_list.append(item[4][0])
     except Exception as e:
-        logger.log('ERROR', f'url: {url}  {netloc}  {repr(e)}')
+        logger.log('DEBUG', f'url: {url}  {netloc}  {repr(e)}')
         pass
     return ip_list
 
@@ -119,7 +133,6 @@ def check_header_key(headers):
 
 
 def check_cdn_asn(ip):
-
     try:
         # https://www.maxmind.com/en/accounts/410249/geoip/downloads
         with geoip2.database.Reader(setting.data_storage_dir.joinpath('GeoLite2-ASN.mmdb')) as reader:
@@ -134,7 +147,8 @@ def check_cdn_asn(ip):
 
 
 # data = [{'cname' : cnames, 'headers' : headers, 'ip' : ip_list, 'url' : 'https://www.baidu.com'}]
-def run(url):
+def run(url, task):
+    progress.start_task(task)
     flag = False
     ip = get_ip_list(url)
     data = [{'cname': get_cnames([], url), 'headers': get_headers(url), 'ip': ip}]
@@ -157,6 +171,7 @@ def run(url):
         if check_cdn_cidr(ip) or check_cdn_asn(ip):
             flag = True
 
+    progress.update(task, advance=1)
     if flag:
         logger.log("DEBUG", f' {url} 存在CDN ')
         return ''
@@ -166,8 +181,6 @@ def run(url):
 
 def check_cdn(processed_targets):
     ips = []
-    logger.log('INFOR', f'Start CDN check module')
-    start_time = time.time()
     # 创建一个事件循环
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -176,15 +189,19 @@ def check_cdn(processed_targets):
     # 这一步很重要, 使用线程池访问，使用loop.run_in_executor()函数:内部接受的是阻塞的线程池，执行的函数，传入的参数
     tasks = []
 
-    for target in processed_targets:
-        target = target.replace('\n', '').replace('\r', '').strip()
-        # 只对域名做CDN 检测，排除目标中的ip
-        if re.match(r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$", target):
-            ips.append(target)
-        else:
-            tasks.append(loop.run_in_executor(p, run, target))
+    # 进度条
+    with progress:
+        task = progress.add_task(f"[cyan]CDN check module ...", total=len(processed_targets), start=False)
 
-    try:
+        for target in processed_targets:
+            target = target.replace('\n', '').replace('\r', '').strip()
+            # 只对域名做CDN 检测，排除目标中的ip
+            if re.match(r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$", target):
+                ips.append(target)
+                progress.update(task, advance=1)
+            else:
+                tasks.append(loop.run_in_executor(p, run, target, task))
+
         if len(tasks) > 0:
             # 使用uvloop加速asyncio, 目前不支持Windows
             import platform
@@ -197,21 +214,7 @@ def check_cdn(processed_targets):
             loop.run_until_complete(result)
             for i in tasks:
                 ips.extend(i.result())
-    except KeyboardInterrupt:
-        # 当检测到键盘输入 ctrl c的时候
-        all_tasks = asyncio.Task.all_tasks()
-        # 获取注册到loop下的所有task
-        for task in all_tasks:
-            task.cancel()
-            # 取消该协程,如果取消成功则返回True
-        loop.stop()
-        # 停止循环
-        loop.run_forever()
-        # loop事件循环一直运行
-        # 这两步必须要做
-    finally:
         loop.close()
-        # 关闭事件循环
-    logger.log("INFOR", f'CDN check over in %.1f seconds!' % (time.time() - start_time))
+
     return ips
 

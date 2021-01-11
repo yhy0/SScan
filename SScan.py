@@ -15,9 +15,11 @@ from config.banner import SScan_banner
 from lib.common.report import save_report
 from lib.common.common import prepare_targets, scan_process
 from config import setting
-from lib.common.utils import clear_queue
-
+from lib.common.utils import clear_queue, check_fofa, ctrl_quit
 import multiprocessing
+import signal
+import warnings
+warnings.filterwarnings('ignore')
 
 
 class SScan(object):
@@ -42,13 +44,12 @@ class SScan(object):
         :param str    script:            ScriptName1,ScriptName2,...
         :param bool   script_only:       Scan with user scripts only
         :param bool   noscripts:         Disable all scripts (default False)
-        :param bool   debug:             Show verbose debug info (default False)
         :param bool   browser:           Do not open web browser to view report (default True)
 
     """
 
     def __init__(self, host=None, file=None, dire="", network=32, t=10, rule=None,
-                 full=True, script=None, noscripts=False, debug=True, crawl=True,
+                 full=True, script=None, noscripts=False, crawl=True,
                  browser=True, script_only=False, checkcdn=True):
         self.host = host
         self.file = file
@@ -64,7 +65,6 @@ class SScan(object):
         self.scripts_only = script_only
         self.script = script
         self.no_scripts = noscripts
-        self.debug = debug
         self.browser = browser
 
         if self.file:
@@ -199,16 +199,17 @@ class SScan(object):
                 if len(target_list) * 2 < count:
                     count = len(target_list) * 2
                 pool = multiprocessing.Pool(count)
-                setting.tasks_count.value = 0
-
                 num = math.ceil(len(target_list)/count)
+                domain_start_time = time.time()
+                logger.log('INFOR', f'Domain name resolution, subnet mask processing, CDN detection, 80、443 port detection, FOFA search started.')
                 for i in range(0, len(target_list), count):
                     target = target_list[i:i + count]
-                    pool.apply_async(prepare_targets, args=(target, q_targets, self, num))
-
+                    pool.apply_async(prepare_targets, args=(target, q_targets, self))
                 pool.close()
                 pool.join()
 
+                logger.log("INFOR", f'Domain name resolution, subnet mask processing, CDN detection, 80、443 port detection, FOFA search is over in %.1f seconds!' % (
+                            time.time() - domain_start_time))
                 time.sleep(1.0)
 
                 while True:
@@ -224,14 +225,42 @@ class SScan(object):
                 if len(target_list) * 2 < count:
                     count = len(target_list) * 2
 
-                pool = multiprocessing.Pool(count)
-                logger.log('INFOR', f'{count} scan process created.')
+                # pool = multiprocessing.Pool(count)
+                # logger.log('INFOR', f'{count} scan process created.')
+                #
+                # for target in q_targets_list:
+                #     pool.apply_async(scan_process, args=(target, q_results, self))
+                #
+                # pool.close()
+                # pool.join()
 
-                for target in q_targets_list:
-                    pool.apply_async(scan_process, args=(target, q_results, self))
+                # 进度条设置
+                from rich.progress import (
+                    BarColumn,
+                    TimeRemainingColumn,
+                    Progress,
+                )
+                progress = Progress(
+                    "[progress.description]{task.description}",
+                    BarColumn(),
+                    "[progress.percentage]{task.percentage:>3.0f}%",
+                    TimeRemainingColumn(),
+                    "[bold red]{task.completed}/{task.total}",
+                    transient=True,  # 100%后隐藏进度条
+                )
+                with progress:
+                    targets = []
+                    for target in q_targets_list:
+                        tmp = [target, q_results, self]
+                        targets.append(tmp)
 
-                pool.close()
-                pool.join()
+                    task_id = progress.add_task("[cyan]Leak detection...", total=len(targets), start=False)
+
+                    with multiprocessing.Pool(processes=16) as pool:
+                        results = pool.imap_unordered(scan_process, targets)
+                        for result in results:
+                            # progress.print(result)
+                            progress.advance(task_id)
 
                 time.sleep(1.0)
 
@@ -245,8 +274,12 @@ class SScan(object):
                 setting.stop_me = True
                 logger.log('INFOR', 'Scan aborted.')
                 exit(-1)
+            except FileNotFoundError as e:
+                logger.log('INFOR', 'Scan aborted.')
+                exit(-1)
+                pass
             except Exception as e:
-                logger.log('INFOR', '[__main__.exception] %s %s' % (type(e), str(e)))
+                logger.log('ERROR', '[__main__.exception] %s %s' % (type(e), str(e)))
             setting.stop_me = True
 
     def print(self):
@@ -260,6 +293,8 @@ class SScan(object):
         print(f'[*] Starting InfoScan @ {dt}\n')
         self.check_param()
         self.config_param()
+        check_fofa()
+
         if self.no_scripts:
             logger.log('INFOR', '* Scripts scan was disabled.')
         if self.require_ports:
@@ -282,4 +317,6 @@ class SScan(object):
 
 
 if __name__ == '__main__':
+    # 优雅的使用 ctrl c 退出
+    signal.signal(signal.SIGINT, ctrl_quit)
     fire.Fire(SScan)

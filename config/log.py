@@ -15,10 +15,10 @@ log_path = log_save_dir.joinpath(f'sscan.log')  # OneForAll日志保存路径
 
 # 日志配置
 # 终端日志输出格式
-stdout_fmt = '<cyan>{time:MM-DD HH:mm:ss,SS}</cyan> ' \
+stdout_fmt = '\r<cyan>{time:MM-DD HH:mm:ss,SS}</cyan> ' \
              '[<level>{level: <5}</level>] ' \
              '<blue>{module}</blue>:<cyan>{line}</cyan> - ' \
-             '<level>{message}</level>'
+             '<level>{message}</level>    '
 
 # 日志文件记录格式
 logfile_fmt = '<light-green>{time:YYYY-MM-DD HH:mm:ss,SSS}</light-green> ' \

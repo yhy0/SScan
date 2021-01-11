@@ -6,6 +6,7 @@
 __all__ = ['getTerminalSize']
 import os
 
+
 def getTerminalSize():
     import platform
     current_os = platform.system()

@@ -2,17 +2,17 @@
 
 [![python](https://img.shields.io/badge/python-3.6|3.7|3.8-blue)](https://github.com/yhy0/SScan/)
 
-[![python](https://img.shields.io/badge/release-v0.3-brightgreen)](https://github.com/yhy0/SScan/)
+[![python](https://img.shields.io/badge/release-v0.5-brightgreen)](https://github.com/yhy0/SScan/)
 
 ### 前言
 
 一款src捡洞扫描器，因没时间挖src，毕竟挖src是个费时费力的活，自19年8月起入坑至今，依靠 [BBScan](https://github.com/lijiejie/BBScan.git) 扫描出的信息和漏洞，利用业余时间从扫描报告中的资产**捡洞**和找洞，已经3次jd月度前十。萌发出自己写扫描器挖洞的念头，自动挖一些简单漏洞，赚点零花钱，同时提升一下开发能力，毕竟搞安全的不能不懂开发。
 
+目前 [SScan](https://github.com/yhy0/SScan) 的主要逻辑还是在模仿 [BBScan](https://github.com/lijiejie/BBScan.git)。
+
 ### 使用效果图
 
-界面从 [oneforall](https://github.com/shmilylty/OneForAll.git) 拿的，  内核逻辑现在还是以lijiejie大佬[BBScan](https://github.com/lijiejie/BBScan.git)为主。
-
-![image-20210104144338454](images/image-20210104144338454.png)
+![http-bw](images/sscan.svg)
 
 扫描结束后，结果报告在report目录下，并且存在漏洞时，默认会使用浏览器打开报告
 
@@ -28,7 +28,9 @@ python3 SScan.py --file domains.txt  --network 24 run   network设置一个子�
                 配合上面3个参数中任意一个。将扫描Target/MASK 网络下面的所有IP
 python3 SScan.py --host 127.0.0.1 --script unauthorized_access_redis,unauthorized_access_rsync run
                     只使用指定脚本 
-                    
+
+您可以通过在 config/setting.py 文件中指定fofa api信息, 调用fofa搜索更多的Web服务
+
 其它参数：
     --t             扫描线程数, 默认10。
     --full          处理所有子目录。 /x/y/z/这样的链接，/x/ /x/y/也将被扫描，默认为True
@@ -49,7 +51,7 @@ python3 SScan.py --host 127.0.0.1 --script unauthorized_access_redis,unauthorize
 
 - [x] 后台登录页面资产发现
 
-- [x] 403页面绕过，具体绕过规则在`lib/common/scanner.py`的196行的``bypass_403`函数
+- [x] 403页面绕过，具体绕过规则在`lib/common/scanner.py`的196行的`bypass_403`函数
 
 - [x] 扫描某个网段，通过 `--network 24` 指定扫描C段资产，进行漏洞和信息发现
 
@@ -59,8 +61,9 @@ python3 SScan.py --host 127.0.0.1 --script unauthorized_access_redis,unauthorize
 
     redis、Hadoop、Hadoop yarn、docker、docker registry api、CouchDB、ftp、zookeeper、elasticsearch、memcached、mongodb、rsync、jenkins、jboss的未授权访问，mysql空口令、PostgreSQL 空口令 ，具体见`scripts` 目录
     
-    
     对于数据库口令检测，目前只是检测是否存在空口令检测，后续会考虑要不要加入一些弱口令，进行检测。像这样 https://github.com/se55i0n/DBScanner/blob/master/lib/exploit.py
+    
+- [x] 当在 config/setting.py 文件中指定fofa api 信息时，会调用fofa接口，搜索更多的Web服务
 
 ## 后续计划
 
@@ -72,7 +75,7 @@ python3 SScan.py --host 127.0.0.1 --script unauthorized_access_redis,unauthorize
 
  ![image-20210106105118466](images/image-20210106105118466.png)
 
--   [ ] 调用Fofa Api，查询资产信息，更全面地扫描资产
+-   [X] 调用Fofa Api，查询资产信息，更全面地扫描资产
 
 ## rules目录下的规则描述
 

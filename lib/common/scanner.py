@@ -12,8 +12,8 @@ import importlib
 from yarl import URL
 import traceback
 import re
-import time
 import glob
+import time
 import os
 from bs4 import BeautifulSoup
 import hashlib
@@ -94,16 +94,16 @@ class Scanner(object):
         return True
 
     def init_final(self):
-        start_time = time.time()
         if self.scheme == 'http' and self.port == 80 or self.scheme == 'https' and self.port == 443:
             self.base_url = f'{self.scheme}://{self.host}'
         else:
-            self.base_url = f'{self.scheme}://{self.host}:{self.port}'
+            # self.base_url = f'{self.scheme}://{self.host}:{self.port}'
+            self.base_url = f'{self.scheme}://{self.host}'
 
-        if self.has_http:
-            logger.log('INFOR', f'Scan { self.base_url}')
-        else:
-            logger.log('INFOR', 'NO_HTTP_Scan %s:%s' % (self.host, self.port) if self.port else 'Scan %s' % self.host)
+        # if self.has_http:
+        #     logger.log('INFOR', f'Scan { self.base_url}')
+        # else:
+        #     logger.log('INFOR', 'NO_HTTP_Scan %s:%s' % (self.host, self.port) if self.port else 'Scan %s' % self.host)
 
         # 脚本
         if self.no_scripts != 1:  # 不是重复目标 80 443 跳转的，不需要重复扫描
@@ -120,15 +120,16 @@ class Scanner(object):
 
         self.check_404_existence()
 
-        if self._404_status == -1:
-            logger.log('ALERT', 'HTTP 404 check failed <%s:%s>' % (self.host, self.port))
-        elif self._404_status != 404:
-            logger.log('ALERT', '%s has no HTTP 404.' % self.base_url)
+        # if self._404_status == -1:
+        #     logger.log('ALERT', 'HTTP 404 check failed <%s:%s>' % (self.host, self.port))
+        # elif self._404_status != 404:
+        #     logger.log('ALERT', '%s has no HTTP 404.' % self.base_url)
+
         _path, _depth = cal_depth(self, self.path)
 
         # 加入队列
         self.enqueue('/')
-        logger.log('INFOR', f'{self.base_url} 目标初始化、404检测、页面a标签爬取共使用 {time.time() - start_time:0.2f} s')
+        # logger.log('INFOR', f'{self.base_url} 目标初始化、404检测、页面a标签爬取共使用 {time.time() - start_time:0.2f} s')
 
     # 进行http请求
     def http_request(self, url, timeout=20):
@@ -162,35 +163,39 @@ class Scanner(object):
             # 301 永久移动时，重新获取response
             if status == 301:
                 target = headers.get('Location')
-                try:
-                    resp = self.session.get(URL(target, encoded=True), headers=setting.default_headers, allow_redirects=False, timeout=timeout, verify=False)
-                    headers = resp.headers
-                except Exception as e:
-                    logger.log('ERROR', e)
+                if not target.startswith('/file:'):
+                    try:
+                        resp = self.session.get(URL(target, encoded=True), headers=setting.default_headers, allow_redirects=False, timeout=timeout, verify=False)
+                        headers = resp.headers
+                    except Exception as e:
+                        logger.log('ERROR', f'{e},  {target}  {self.base_url + url}')
 
             # 前面禁止重定向， 但有时，网页重定向后才会有东西
             if status == 302:
                 new_url = headers["Location"]
+
                 if new_url not in self._302_url:
                     resp = self.session.get(URL(new_url, encoded=True), headers=setting.default_headers, timeout=timeout, verify=False)
                     headers = resp.headers
                     self._302_url.add(new_url)
 
             html_doc = get_html(headers, resp)
-            if self.args.debug:
-                logger.log('DEBUG', f'--> {url}  {status, headers}')
+            logger.log('DEBUG', f'--> {url}  {status, headers}')
             return status, headers, html_doc
         except requests.exceptions.RetryError as e:
-            logger.log('ERROR', repr(e))
+            # logger.log('ERROR', repr(e))
+            return -1, {}, ''
+        except requests.exceptions.ReadTimeout:
+            # logger.log('ERROR', '请求超时')
             return -1, {}, ''
         except requests.exceptions.ConnectionError as e:
-            logger.log('ERROR', f'IP可能被封了  {repr(e)}')
+            # logger.log('ERROR', f'IP可能被封了  {repr(e)}    {self.base_url + url}')
             return -1, {}, ''
         except TypeError as e:
-            logger.log('ERROR', repr(e))
+            # logger.log('ERROR', repr(e))
             return -1, {}, ''
         except Exception as e:
-            logger.log('ERROR', f'{repr(e)}   {self.base_url + url}')
+            # logger.log('ERROR', f'{repr(e)}   {self.base_url + url}')
             return -1, {}, ''
 
     # 403 绕过
@@ -264,7 +269,7 @@ class Scanner(object):
                     self.results[OriginalUrl].append(_)
                 # print(_)
                 break
-        logger.log('INFOR', f'403 bypass test. {self.base_url + OriginalUrl}')
+        # logger.log('INFOR', f'403 bypass test. {self.base_url + OriginalUrl}')
 
     # 检查状态404是否存在
     def check_404_existence(self):
@@ -297,6 +302,10 @@ class Scanner(object):
             # logger.log('INFOR', 'Entered Queue: %s' % url_pattern)
             if self.args.crawl:  # 爬取网站的 a 标签
                 self.crawl(url)
+            else:
+                self.index_status, self.index_headers, self.index_html_doc = self.http_request('/')
+                # 计算首页页面的 md5 值 ，通过对比 md5 值, 判断页面是否相等
+                self.index_md5 = hashlib.md5(self.index_html_doc.encode('utf-8')).hexdigest()
 
             if self._404_status != -1:  # valid web service
                 # 网站主目录下扫描全部rule, 即rule和root_only标记的rule, 其他目录下扫描 只扫描rule
@@ -357,7 +366,6 @@ class Scanner(object):
 
             if path == '/':
                 self.index_status, self.index_headers, self.index_html_doc = status, headers, html_doc
-
                 # 计算首页页面的 md5 值 ，通过对比 md5 值, 判断页面是否相等
                 self.index_md5 = hashlib.md5(self.index_html_doc.encode('utf-8')).hexdigest()
 
@@ -493,6 +501,7 @@ class Scanner(object):
             self.flag = True
             if self.flag:
                 self.url_list.clear()
+                # self.flag = False
                 logger.log('ALERT', '[ERROR] Timed out task: %s' % self.base_url)
             return
         url, url_description, tag, status_to_match, content_type, content_type_no, root_only, vul_type, prefix = None, None, None, None, None, None, None, None, None
@@ -521,7 +530,7 @@ class Scanner(object):
                     url = url.replace('{sub}', self.domain_sub)
 
         except Exception as e:
-            logger.log('ERROR', '[scan_worker.1] %s' % str(e))
+            logger.log('ERROR', '[scan_worker.1][%s  %s]' % (item[0], item[1]))
             logger.log('ERROR', traceback.format_exc())
             return
         if not item or not url:
@@ -529,6 +538,7 @@ class Scanner(object):
 
         # 开始规则目录探测
         try:
+
             status, headers, html_doc = self.http_request(url)
             cur_content_type = headers.get('content-type', '')
             cur_content_length = headers.get('content-length', len(html_doc))
@@ -575,20 +585,18 @@ class Scanner(object):
             if valid_item:
                 m = re.search('<title>(.*?)</title>', html_doc)
                 title = m.group(1) if m else ''
-                # self.print_msg('[+] [Prefix:%s] [%s] %s' % (prefix, status, 'http://' + self.host +  url))
                 if prefix not in self.results:
                     self.results[prefix] = []
                 _ = {'status': status, 'url': '%s%s' % (self.base_url, url), 'title': title, 'vul_type': vul_type}
                 if _ not in self.results[prefix]:
                     self.results[prefix].append(_)
         except Exception as e:
-            logger.log('ERROR', '[scan_worker.2][%s] %s' % (url, str(e)))
-            traceback.print_exc()
+            logger.log('ERROR', '[scan_worker.2][%s%s]' % (self.base_url, url))
+            logger.log('ERROR', traceback.print_exc())
 
     # 使用多线程对目标进行扫描
     def scan(self):
         try:
-            start_time = time.time()
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             import platform
@@ -596,31 +604,16 @@ class Scanner(object):
                 import uvloop
                 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
-            t = ThreadPoolExecutor(self.args.t)
+            executor = ThreadPoolExecutor(self.args.t)
 
-            tasks = [loop.run_in_executor(t, self.scan_worker, item) for item in self.url_list]
+            tasks = [loop.run_in_executor(executor, self.scan_worker, item) for item in self.url_list]
             # 这一步很重要，使用loop.run_in_executor()函数:内部接受的是阻塞的线程池，执行的函数，传入的参数
             # 即对网站访问10次，使用线程池访问
 
-            try:
-                loop.run_until_complete(asyncio.wait(tasks))
-            except KeyboardInterrupt:
-                # 当检测到键盘输入 ctrl c的时候
-                all_tasks = asyncio.Task.all_tasks()
-                # 获取注册到loop下的所有task
-                for task in all_tasks:
-                    task.cancel()
-                    # 取消该协程,如果取消成功则返回True
-                loop.stop()
-                # 停止循环
-                loop.run_forever()
-                # loop事件循环一直运行
-                # 这两步必须要做
-            finally:
-                loop.close()
-                # 关闭事件循环
+            loop.run_until_complete(asyncio.wait(tasks))
+            loop.close()
 
-            logger.log('INFOR', f'{self.base_url} 规则探测使用 {time.time() - start_time:0.2f} s')
+            # logger.log('INFOR', f'{self.base_url} 规则探测使用 {time.time() - start_time:0.2f} s')
 
             # 等待所有的任务完成
             for key in self.results.keys():

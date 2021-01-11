@@ -7,6 +7,33 @@ from ipaddress import IPv4Address
 from urllib.parse import urlparse
 import hashlib
 from config.log import logger
+from config.setting import fofaApi, default_headers
+import requests
+import sys
+
+
+# ctrl c 退出时，屏幕上不输出丑陋的traceback信息
+def ctrl_quit(_sig, _frame):
+    sys.exit()
+
+
+def check_fofa():
+    # 当配置 fofa api 时, 检查api是否可用
+    if fofaApi['email'] and fofaApi['key']:
+        email = fofaApi['email']
+        key = fofaApi['key']
+        url = "https://fofa.so/api/v1/info/my?email={0}&key={1}".format(email, key)
+        try:
+            status = requests.get(url, headers=default_headers, timeout=10, verify=False).status_code
+            if status != 200:
+                logger.log('ALERT', f'请修改配置文件config/setting.py中fofaApi为您的API地址')
+                exit(-1)
+        except requests.exceptions.ReadTimeout as e:
+            logger.log('ERROR', f'请求超时 {e}')
+            exit(-1)
+        except requests.exceptions.ConnectionError as e:
+            logger.log('ERROR', f'网络超时 {e}')
+            exit(-1)
 
 
 def ip_to_int(ip):

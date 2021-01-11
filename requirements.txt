@@ -1,5 +1,6 @@
 fire
 beautifulsoup4
+rich
 pymongo
 pymysql
 psycopg2-binary

@@ -4,19 +4,21 @@
 import time
 from string import Template
 import webbrowser
-import sys, errno
+import sys
+import errno
 import codecs
 import os
 from lib.common.utils import escape
 from lib.common.consle_width import getTerminalSize
 from config import setting
 from config.log import logger
-
+from config.banner import version
 # template for html
+
 html_general = """
 <html>
 <head>
-<title>BBScan 1.5 Scan Report</title>
+<title>SScan ${version} Scan Report</title>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <style>
     body {width:960px; margin:auto; margin-top:10px; background:rgb(240,240,240);}
@@ -118,11 +120,10 @@ def save_report(args, _q_results, _file, tasks_processed_count):
                 item = _q_results.get()
                 if type(item) is str:
                     message = '[%s] %s' % (time.strftime('%H:%M:%S', time.localtime()), item)
-                    if not args.debug and args.network <= 22 and \
-                            (item.startswith('Scan ') or item.startswith('No ports open')):
+                    if args.network <= 22 and (item.startswith('Scan ') or item.startswith('No ports open')):
                         sys.stdout.write(message + (console_width - len(message)) * ' ' + '\r')
                     else:
-                        print(message)
+                        logger.log('INFOR', f"{message}")
                     continue
                 host, results = item
                 vulnerable_hosts_count += 1
@@ -130,7 +131,7 @@ def save_report(args, _q_results, _file, tasks_processed_count):
                 # print
                 for key in results.keys():
                     for url in results[key]:
-                        logger.log('INFOR', f" [+]{url['status'] if url['status'] else ''} {url['url']}")
+                        logger.log('INFOR', f"[+]{url['status'] if url['status'] else ''} {url['url']}")
 
                 _str = ""
                 for key in results.keys():
@@ -149,11 +150,12 @@ def save_report(args, _q_results, _file, tasks_processed_count):
                 cost_min = '%s min' % cost_min if cost_min > 0 else ''
                 cost_seconds = '%.2f' % (cost_time % 60)
 
-                html_doc = t_general.substitute(
-                    {'tasks_processed_count': tasks_processed_count,
-                     'vulnerable_hosts_count': vulnerable_hosts_count,
-                     'cost_min': cost_min, 'cost_seconds': cost_seconds, 'content': content}
-                )
+                html_doc = t_general.substitute({
+                    'version': version,
+                    'tasks_processed_count': tasks_processed_count,
+                    'vulnerable_hosts_count': vulnerable_hosts_count,
+                    'cost_min': cost_min, 'cost_seconds': cost_seconds, 'content': content
+                })
 
                 with codecs.open('report/%s' % report_name, 'w', encoding='utf-8') as outFile:
                     outFile.write(html_doc)
@@ -169,6 +171,7 @@ def save_report(args, _q_results, _file, tasks_processed_count):
             cost_seconds = '%.1f' % (cost_time % 60)
 
             html_doc = t_general.substitute({
+                'version': version,
                 'tasks_processed_count': tasks_processed_count,
                 'vulnerable_hosts_count': vulnerable_hosts_count,
                 'cost_min': cost_min,
@@ -178,6 +181,8 @@ def save_report(args, _q_results, _file, tasks_processed_count):
 
             with codecs.open('report/%s' % report_name, 'w', encoding='utf-8') as outFile:
                 outFile.write(html_doc)
+
+            time.sleep(1.0)
 
             logger.log('INFOR', '* %s vulnerable targets on sites in total.' % vulnerable_hosts_count)
             logger.log('INFOR', '* Scan report saved to report/%s' % report_name)

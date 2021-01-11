@@ -4,20 +4,26 @@
 
 import asyncio
 import ipaddress
-import time
 from config.log import logger
-from config.setting import tasks_count
 from urllib.parse import urlparse
 import socket
 from lib.common.scanner import Scanner
 from lib.modules.iscdn import check_cdn
+from config.setting import fofaApi
+from lib.modules.fofa import fmain
 
+# 进度条设置
+from rich.progress import (
+    BarColumn,
+    TimeRemainingColumn,
+    Progress,
+)
 
 # 扫描进程
-def scan_process(target, q_results, args):
+def scan_process(targets):
+    target, q_results, args = targets[0], targets[1], targets[2]
     scanner = Scanner(args=args)
     try:
-
         '''
         {'scheme': 'http', 'host': '47.97.164.40', 'port': 80, 'path': '', 'ports_open': [80], 'is_neighbor': 0}
         '''
@@ -25,18 +31,17 @@ def scan_process(target, q_results, args):
         ret = scanner.init_from_url(target)
         if ret:
             host, results = scanner.scan()
-
             if results:
                 q_results.put((host, results))
 
-    except KeyboardInterrupt as e:
-        exit(-1)
     except Exception as e:
         logger.log('ERROR', f'{str(e)}')
+    finally:
+        return target
 
 
 # 检测端口是否开放
-async def port_scan_check(ip_port, semaphore):
+async def port_scan_check(ip_port, semaphore, progress, task):
     async with semaphore:
         ip, port = ip_port[0], ip_port[1]
         conn = asyncio.open_connection(ip, port)
@@ -45,9 +50,11 @@ async def port_scan_check(ip_port, semaphore):
             # print(ip, port, 'open', ip_port[2], ip_port[3], ip_port[4])
             # 127.0.0.1 3306 open http /test.html 8080
             conn.close()
+            progress.update(task, advance=1)
             return ip, port, 'open', ip_port[2], ip_port[3], ip_port[4]
         except Exception as e:
             conn.close()
+            progress.update(task, advance=1)
             return ip, port, 'close', ip_port[2], ip_port[3], ip_port[4]
 
 
@@ -82,7 +89,7 @@ def get_ip_port_list(queue_targets, args):
         if scheme == 'unknown':
             if port == 80:
                 scheme = 'http'
-            if port == 443:
+            elif port == 443:
                 scheme = 'https'
 
         if port:            # url中指定了协议或端口
@@ -102,7 +109,7 @@ def get_ip_port_list(queue_targets, args):
 
 # 对目标进行封装，格式化
 # {'127.0.0.1': {'scheme': 'http', 'host': '127.0.0.1', 'port': 80, 'path': '', 'ports_open': [80, 3306], 's_port': -1}
-def get_target(tasks):
+def get_target(tasks, fofa_result):
     targets = {}
     for task in tasks:
         if task.result()[2] == 'open':
@@ -115,11 +122,27 @@ def get_target(tasks):
                 targets[host].update(ports_open=port)
             else:
                 targets[host] = {'scheme': scheme, 'host': host, 'port': task.result()[5], 'path': path, 'ports_open': [task.result()[1]]}
+
+    # 处理 fofa 的结果
+    for _target in fofa_result:
+        url = _target
+        # scheme='http', netloc='www.baidu.com:80', path='', params='', query='', fragment=''
+        scheme, netloc, path, params, query, fragment = urlparse(url, 'http')
+
+        # 指定端口时需要，检查指定的端口是否开放
+        host = netloc.split(':')[0]
+        port = int(netloc.split(':')[1])
+        if host in targets.keys() and (port == 80 or port == 443):
+            pass
+        else:
+            fofa_target = {'scheme': scheme, 'host': netloc, 'port': port, 'path': path, 'ports_open': [port]}
+            targets[netloc] = fofa_target
+
     return targets
 
 
 # 使用异步协程， 检测目标80、443、给定端口是否开放
-def process_targets(queue_targets, q_targets, args):
+def process_targets(queue_targets, q_targets, args, fofa_result):
 
     sem = asyncio.Semaphore(1000)  # 限制并发量
     # 主线程通过 get_event_loop 获取当前事件循环， 对于其他线程需要首先loop=new_event_loop(),然后set_event_loop(loop)。
@@ -133,41 +156,39 @@ def process_targets(queue_targets, q_targets, args):
     ip_port_list = get_ip_port_list(queue_targets, args)
 
     tasks = list()
-    try:
-        for ip_port in ip_port_list:
-            # 端口扫描任务
-            tasks.append(loop.create_task(port_scan_check(ip_port, sem)))
-    except Exception as e:
-        logger.log("ERROR", f'{e}')
 
-    import platform
-    if platform.system() != "Windows":
-        import uvloop
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    progress = Progress(
+        "[progress.description]{task.description}",
+        BarColumn(),
+        "[progress.percentage]{task.percentage:>3.0f}%",
+        TimeRemainingColumn(),
+        "[bold red]{task.completed}/{task.total}",
+        transient=True,  # 100%后隐藏进度条
+    )
 
-    try:
+    # 进度条
+    with progress:
+        task = progress.add_task(f"[cyan]Start of port detection ...", total=len(queue_targets), start=False)
+        try:
+            for ip_port in ip_port_list:
+                # 端口扫描任务
+                tasks.append(loop.create_task(port_scan_check(ip_port, sem, progress, task)))
+        except Exception as e:
+            logger.log("ERROR", f'{e}')
+
+        import platform
+        if platform.system() != "Windows":
+            import uvloop
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         loop.run_until_complete(asyncio.wait(tasks))
-    except KeyboardInterrupt:
-        # 当检测到键盘输入 ctrl c的时候
-        all_tasks = asyncio.Task.all_tasks()
-        # 获取注册到loop下的所有task
-        for task in all_tasks:
-            task.cancel()
-            # 取消该协程,如果取消成功则返回True
-        loop.stop()
-        # 停止循环
-        loop.run_forever()
-        # loop事件循环一直运行
-        # 这两步必须要做
-    finally:
-        loop.close()
         # 关闭事件循环
+        loop.close()
 
     # 对目标进行封装，格式化
-    targets = get_target(tasks)
+    targets = get_target(tasks, fofa_result)
 
-    for url in targets:
-        target = targets[url]
+    for host in targets:
+        target = targets[host]
         ports_open = target['ports_open']
         if 80 in ports_open and 443 in ports_open:
             target.update(port=443)
@@ -185,9 +206,10 @@ def process_targets(queue_targets, q_targets, args):
         else:
             target['has_http'] = False
         # 添加目标，最终的扫描目标
+        # {'scheme': 'https', 'host': '127.0.0.1', 'port': 443, 'path': '', 'ports_open': [443, 80], 'has_http': True}
         q_targets.put(target)
-        if args.debug:
-            logger.log("DEBUG", f'扫描目标详细信息: {target}')
+
+        logger.log("DEBUG", f'扫描目标详细信息: {target}')
 
 
 # 解析域名获取ip，检查域名有效性 ，并保存有效url和ip
@@ -221,13 +243,7 @@ async def domain_lookup_check(loop, url, queue_targets, processed_targets):
 
 
 # 预处理 URL / IP / 域名，端口发现
-def prepare_targets(target_list, q_targets, args, count):
-    tasks_count.value += 1
-
-    logger.log('INFOR', f'{tasks_count.value}/{count} Domain lookup start.')
-
-    domain_start_time = time.time()
-
+def prepare_targets(target_list, q_targets, args):
     # 有效目标，包括url和ip
     queue_targets = []
 
@@ -244,39 +260,20 @@ def prepare_targets(target_list, q_targets, args, count):
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     result = asyncio.gather(*tasks)
 
-    try:
-        loop.run_until_complete(result)
-    except KeyboardInterrupt:
-        # 当检测到键盘输入 ctrl c的时候
-        all_tasks = asyncio.Task.all_tasks()
-        # 获取注册到loop下的所有task
-        for task in all_tasks:
-            task.cancel()
-            # 取消该协程,如果取消成功则返回True
-        loop.stop()
-        # 停止循环
-        loop.run_forever()
-        # loop事件循环一直运行
-        # 这两步必须要做
-    finally:
-        loop.close()
-        # 关闭事件循环
+    loop.run_until_complete(result)
 
-    if args.debug:
-        logger.log("DEBUG", f'有效域名url: {queue_targets} 和 有效ip: {processed_targets}')
+    loop.close()
+
+    logger.log("DEBUG", f'有效域名url: {queue_targets} 和 有效ip: {processed_targets}')
 
     # 对目标ip进行进一步处理， 检查是否存在cdn
     if args.checkcdn:
         processed_targets = check_cdn(target_list)
 
-    if args.debug:
-        logger.log("DEBUG", f'没有CDN的目标: {processed_targets}')
-
-    logger.log("INFOR", f'{tasks_count.value}/{count} Domain lookup check over in %.1f seconds!' % (time.time() - domain_start_time))
+    logger.log("DEBUG", f'没有CDN的目标: {processed_targets}')
 
     # 当指定子网掩码时的处理逻辑, 将对应网段ip加入处理目标中
     if args.network != 32:
-        logger.log("INFOR", f'{tasks_count.value}/{count} Process sub network start.')
         for ip in processed_targets:
             if ip.find('/') > 0:    # 网络本身已经处理过 118.193.98/24
                 continue
@@ -298,20 +295,20 @@ def prepare_targets(target_list, q_targets, args, count):
                     _ip = str(_ip)
                     if _ip not in processed_targets:
                         queue_targets.append(_ip)
-        logger.log("INFOR", f'{tasks_count.value}/{count} Process sub network over.')
 
-    # 将域名和IP 合并
+    # 目标列表 将域名和IP 合并
     queue_targets.extend(processed_targets)
     # 去重
     queue_targets = set(queue_targets)
 
+    # fofa 扫到的并且存活的web资产
+    fofa_result = []
+
+    # 当配置 fofa api 时, 对 queue_targets 目标进行fofa搜索，扩大资产范围
+    if fofaApi['email'] and fofaApi['key']:
+        fofa_result = fmain(queue_targets)
+    # fofa_result['http://127.0.0.1:3790', 'http://127.0.0.1:80', 'https://127.0.0.1:443']
+
     # 使用异步协程， 检测目标80、443、给定端口是否开放
-    logger.log('INFOR', f'{tasks_count.value}/{count} Start of port detection.')
-    port_start_time = time.time()
-
-    # 检测目标80、443、给定端口是否开放
-    process_targets(queue_targets, q_targets, args)
-
-    logger.log("INFOR", f'{tasks_count.value}/{count} Port detection check over in %.1f seconds!' % (time.time() - port_start_time))
-
-
+    # 检测目标的80、443、给定端口是否开放，并格式化，加入扫描队列 q_targets
+    process_targets(queue_targets, q_targets, args, fofa_result)
