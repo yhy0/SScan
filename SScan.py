@@ -119,7 +119,7 @@ class SScan(object):
             pattern = re.compile(r'ports_to_check.*?\\=(.*)')
 
             for _script in self.script_files:
-                with open(_script) as f:
+                with open(_script, encoding='UTF-8') as f:
                     content = f.read()
                     if content.find('self.http_request') > 0 or content.find('self.session') > 0:
                         self.require_no_http = False  # 插件依赖HTTP连接池
@@ -177,7 +177,7 @@ class SScan(object):
                 target_list = self.host.replace(',', ' ').strip().split()
 
             elif self.file or self.dire:
-                with open(input_file) as inFile:
+                with open(input_file, encoding='UTF-8') as inFile:
                     target_list = inFile.readlines()
 
             try:
