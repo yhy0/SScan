@@ -486,7 +486,7 @@ class Scanner(object):
             return
         for _script in self.args.script_files:
             # 跳过__init__.py
-            if _script.startswith('scripts/__'):
+            if _script.startswith('scripts/__') or _script.startswith('scripts\\__'):
                 continue
             script_name_origin = os.path.basename(_script)
             script_name = script_name_origin.replace('.py', '')
