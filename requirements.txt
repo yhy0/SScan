@@ -10,3 +10,4 @@ geoip2
 retrying
 yarl
 loguru
+dnspython
