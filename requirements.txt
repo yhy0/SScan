@@ -1,6 +1,6 @@
 fire
 beautifulsoup4
-rich
+loguru
 pymongo
 pymysql
 psycopg2-binary
@@ -9,5 +9,6 @@ requests
 geoip2
 retrying
 yarl
-loguru
 dnspython
+aiohttp
+rich

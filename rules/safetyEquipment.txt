@@ -1,2 +1,0 @@
-# 安全设备
-/fort/pages/login.jsp        {tag="网神SecFox安全审计系统"}    {status=200}     {root_only}

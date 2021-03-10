@@ -4,7 +4,11 @@
 
 import requests
 from requests.adapters import HTTPAdapter
-from config import setting
+from lib.config import setting
+# 禁用安全请求警告
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
 '''
 连接池
 HTTP是建立在TCP上面的，一次HTTP请求要经历TCP三次握手阶段，
@@ -21,6 +25,7 @@ def conn_pool():
     session.keep_alive = False
     session.headers = setting.default_headers
     # 创建一个适配器，连接池的数量pool_connections, 最大数量pool_maxsize, 失败重试的次数max_retries
+
     '''
     pool_connections – 缓存连接 缓存的 urllib3 连接池个数， 指定的不是连接的数量，而是连接池的数量，一般默认的10就够用了。
     pool_maxsize – 指定的才是每个pool中最大连接数量
@@ -37,7 +42,7 @@ def conn_pool():
     # 设置为False, 主要是HTTPS时会报错
     session.verify = False
 
-    # user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.105 Safari/537.36'
-    # user_agent = default_headers
+    # 禁止使用环境系统代理
+    session.trust_env = False
 
     return session

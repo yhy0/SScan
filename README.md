@@ -2,7 +2,7 @@
 
 [![python](https://img.shields.io/badge/python-3.6|3.7|3.8-blue)](https://github.com/yhy0/SScan/)
 
-[![python](https://img.shields.io/badge/release-v0.5-brightgreen)](https://github.com/yhy0/SScan/)
+[![python](https://img.shields.io/badge/release-v0.8-brightgreen)](https://github.com/yhy0/SScan/)
 
 ### 前言
 
@@ -12,7 +12,7 @@
 
 ### 使用效果图
 
-![http-bw](images/sscan.svg)
+![sscan](images/sscan-5386167.gif)
 
 扫描结束后，结果报告在report目录下，并且存在漏洞时，默认会使用浏览器打开报告
 
@@ -41,7 +41,7 @@ python3 SScan.py --host 127.0.0.1 --script unauthorized_access_redis,unauthorize
     --rule          指定要扫描的规则，--rule RuleFileName1,RuleFileName2,... 规则在rules目录下
     --script_only   只使用脚本进行扫描，不使用规则
     --noscripts     不使用脚本扫描
-
+    --fofa       是否使用fofa扩大目标，默认为True，通过在lib/config/setting.py 
 ```
 ## 功能
 
@@ -53,29 +53,28 @@ python3 SScan.py --host 127.0.0.1 --script unauthorized_access_redis,unauthorize
 
 - [x] 403页面绕过，具体绕过规则在`lib/common/scanner.py`的196行的`bypass_403`函数
 
-- [x] 扫描某个网段，通过 `--network 24` 指定扫描C段资产，进行漏洞和信息发现
+     使用BurpSuite 实验室[Lab: URL-based access control can be circumvented](https://portswigger.net/web-security/access-control/lab-url-based-access-control-can-be-circumvented) 进行测试
+
+    ![image-20210106105118466](images/image-20210106105118466.png)
+
+- [x] 扫描某个网段，比如通过 `--network 24` 指定扫描C段资产，进行漏洞和信息发现
 
 - [x] 跳过存在CDN的IP，当检测到url解析的IP符合CDN特征时，不会将ip加入扫描目标中，只会扫描url
 
 - [x] 一些常见未授权和弱口令检测，目前支持：
 
-    redis、Hadoop、Hadoop yarn、docker、docker registry api、CouchDB、ftp、zookeeper、elasticsearch、memcached、mongodb、rsync、jenkins、jboss的未授权访问，mysql空口令、PostgreSQL 空口令 ，具体见`scripts` 目录
+    redis、Hadoop、Hadoop yarn、docker、docker registry api、CouchDB、ftp、zookeeper、elasticsearch、memcached、mongodb、rsync、jenkins、jboss的未授权访问，mysql空口令、PostgreSQL 空口令 ，具体见`pocs/scripts` 目录
     
     对于数据库口令检测，目前只是检测是否存在空口令检测，后续会考虑要不要加入一些弱口令，进行检测。像这样 https://github.com/se55i0n/DBScanner/blob/master/lib/exploit.py
     
-- [x] 当在 config/setting.py 文件中指定fofa api 信息时，会调用fofa接口，搜索更多的Web服务
+- [x] 当在` lib/config/setting.py`  文件中指定fofa api 信息时，会调用fofa接口，搜索更多的Web服务
 
 ## 后续计划
 
-- [ ] 将[Packer-Fuzzer](https://github.com/rtcatc/Packer-Fuzzer)项目中的一些功能集成进去，能够对js文件中的敏感信息、API进行测试
+- [ ] ~~将[Packer-Fuzzer](https://github.com/rtcatc/Packer-Fuzzer)项目中的一些功能集成进去，能够对js文件中的敏感信息、API进行测试~~，添加此功能有点臃肿，而且有现成的(不是我懒)，1.0版本准备添加指纹识别，记录一个目标的各种信息，并生成报告，后续可以筛选出目标使用[Packer-Fuzzer](https://github.com/rtcatc/Packer-Fuzzer) 进行批量扫描
+- [ ] 1.0版本添加指纹识别，记录一个目标的各种信息，并生成报告。
+- [ ] 继续优化各模块
 
-- [x] 加入403 绕过 [BurpSuite_403Bypasser](https://github.com/sting8k/BurpSuite_403Bypasser)
-
- 使用BurpSuite 实验室[Lab: URL-based access control can be circumvented](https://portswigger.net/web-security/access-control/lab-url-based-access-control-can-be-circumvented) 进行测试
-
- ![image-20210106105118466](images/image-20210106105118466.png)
-
--   [X] 调用Fofa Api，查询资产信息，更全面地扫描资产
 
 ## rules目录下的规则描述
 

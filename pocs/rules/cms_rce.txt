@@ -1,0 +1,2 @@
+# seeyon_getshell
+/seeyon/thirdpartyController.do.css/..;/ajax.do      {tag="java.lang.NullPointerException:null"}  {status=200}     {root_only}
