@@ -131,7 +131,6 @@ class SScan(object):
                     if not os.path.exists('pocs/scripts/%s' % script_name):
                         logger.log('FATAL', f'script file not found: {script_name}')
                         exit(-1)
-
                     self.script_files.append('pocs/scripts/%s' % script_name)
             pattern = re.compile(r'ports_to_check.*?=(.*)')
 
@@ -219,7 +218,7 @@ class SScan(object):
                 p.daemon = True
                 p.start()
                 p.join()    # join 是用来阻塞当前线程的，p.start()之后，p 就提示主进程，需要等待p结束才向下执行
-
+                time.sleep(1.0)  # 让prepare_targets进程尽快开始执行
 
                 logger.log('INFOR', f'All preparations have been completed and it took %.1f seconds!' % (
                         time.time() - start_time))
@@ -267,6 +266,7 @@ class SScan(object):
 
                         pool.close()
                         pool.join()
+                        time.sleep(1.0)  # 让prepare_targets进程尽快开始执行
 
 
                 cost_time = time.time() - start_time

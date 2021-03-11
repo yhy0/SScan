@@ -418,9 +418,11 @@ class Scanner(object):
         if self.args.no_scripts:  # 全局禁用插件，无需导入
             return
         for _script in self.args.script_files:
-            # 跳过__init__.py
-            if _script.startswith('pocs/scripts/__') or _script.startswith('pocs\\scripts\\__'):
+
+            # 跳过__init__.py 
+            if '_init_' in _script:
                 continue
+            
             script_name_origin = os.path.basename(_script)
             script_name = script_name_origin.replace('.py', '')
 
