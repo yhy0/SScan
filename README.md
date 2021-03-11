@@ -12,7 +12,7 @@
 
 ### 使用效果图
 
-![sscan](https://cdn.jsdelivr.net/gh/yhy0/PicGoImg@master/sscan/20210311084842.gif)
+![](https://raw.githubusercontent.com/yhy0/PicGoImg/master/sscan/20210311094318.gif)
 
 扫描结束后，结果报告在report目录下，并且存在漏洞时，默认会使用浏览器打开报告
 
@@ -55,7 +55,7 @@ python3 SScan.py --host 127.0.0.1 --script unauthorized_access_redis,unauthorize
 
      使用BurpSuite 实验室[Lab: URL-based access control can be circumvented](https://portswigger.net/web-security/access-control/lab-url-based-access-control-can-be-circumvented) 进行测试
 
-    ![image-20210106105118466](https://cdn.jsdelivr.net/gh/yhy0/PicGoImg@master/sscan/20210311084904.png)
+    ![image-20210106105118466](https://raw.githubusercontent.com/yhy0/PicGoImg/master/sscan/20210311084904.png)
 
 - [x] 扫描某个网段，比如通过 `--network 24` 指定扫描C段资产，进行漏洞和信息发现
 
