@@ -8,11 +8,11 @@
 
 一款src捡洞扫描器，因没时间挖src，毕竟挖src是个费时费力的活，自19年8月起入坑至今，依靠 [BBScan](https://github.com/lijiejie/BBScan.git) 扫描出的信息和漏洞，利用业余时间从扫描报告中的资产**捡洞**和找洞，已经3次jd月度前十。萌发出自己写扫描器挖洞的念头，自动挖一些简单漏洞，赚点零花钱，同时提升一下开发能力，毕竟搞安全的不能不懂开发。
 
-目前 [SScan](https://github.com/yhy0/SScan) 的主要逻辑还是在模仿 [BBScan](https://github.com/lijiejie/BBScan.git)。
+目前 [SScan](https://github.com/yhy0/SScan) 的主要逻辑还是 [BBScan](https://github.com/lijiejie/BBScan.git)。
 
 ### 使用效果图
 
-![sscan](images/sscan-5386167.gif)
+![sscan](https://cdn.jsdelivr.net/gh/yhy0/PicGoImg@master/sscan/20210311084842.gif)
 
 扫描结束后，结果报告在report目录下，并且存在漏洞时，默认会使用浏览器打开报告
 
@@ -55,7 +55,7 @@ python3 SScan.py --host 127.0.0.1 --script unauthorized_access_redis,unauthorize
 
      使用BurpSuite 实验室[Lab: URL-based access control can be circumvented](https://portswigger.net/web-security/access-control/lab-url-based-access-control-can-be-circumvented) 进行测试
 
-    ![image-20210106105118466](images/image-20210106105118466.png)
+    ![image-20210106105118466](https://cdn.jsdelivr.net/gh/yhy0/PicGoImg@master/sscan/20210311084904.png)
 
 - [x] 扫描某个网段，比如通过 `--network 24` 指定扫描C段资产，进行漏洞和信息发现
 
