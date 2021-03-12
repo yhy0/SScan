@@ -292,7 +292,7 @@ class SScan(object):
         self.check_param()
         self.config_param()
         if self.fofa:
-           check_fofa()
+           self.fofa = check_fofa()
         # 获取高质量的代理ip
        # checkProxyFile()
 

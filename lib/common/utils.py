@@ -30,12 +30,14 @@ def check_fofa():
                 logger.log('ERROR', f'状态码{status}, 请确保config/setting.py中fofaApi配置正确')
                 exit(-1)
             logger.log('INFOR', f'fofa Api调用正常')
+            return True
         except requests.exceptions.ReadTimeout as e:
             logger.log('ERROR', f'请求超时 {e}')
             exit(-1)
         except requests.exceptions.ConnectionError as e:
             logger.log('ERROR', f'网络超时 {e}')
             exit(-1)
+        return False
 
 
 # 读取rules目录下的相关规则

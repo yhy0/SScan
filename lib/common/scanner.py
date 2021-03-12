@@ -31,7 +31,7 @@ class Scanner(object):
         self._init_rules()
 
         self._init_scripts()
-        self.timeout = 10 * 60      # 每个目标的最大扫描分钟，默认为10分钟,
+        self.timeout = 30 * 60      # 每个目标的最大扫描分钟，默认为10分钟,
         self.session = conn_pool()  # 使用连接池
 
         self.url_list = list()  # all urls to scan 任务处理队列
