@@ -1,3 +1,17 @@
+#### 前段时间，写完了指纹识别功能，正在测试，这几天没看，我就忘记了。。。。。导致误删，各种恢复没成功，直接裂开，淦。
+
+#### 为防止此等蠢事再次发生，特意建立一个开发分支，开发时GitHub实时同步
+
+
+
+
+
+
+
+
+
+
+
 ## SScan
 
 [![python](https://img.shields.io/badge/python-3.6|3.7|3.8-blue)](https://github.com/yhy0/SScan/)
