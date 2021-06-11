@@ -1,3 +1,5 @@
+## 这个垃圾就先别用了，纯粹是学习生成的，用着不好使，写了一堆bug。等我后续改好吧，最近没时间改。还是用大佬的吧 https://github.com/lijiejie/BBScan
+
 ## SScan
 
 [![python](https://img.shields.io/badge/python-3.6|3.7|3.8-blue)](https://github.com/yhy0/SScan/)
